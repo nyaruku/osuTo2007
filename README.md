@@ -3,8 +3,6 @@ Convert any osu beatmap to v3 (playable in the 2007 client)
 
 Compiling: Makefile
 ```make
-# Makefile for Windows
-
 # Compiler
 CXX = g++
 
