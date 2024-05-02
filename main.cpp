@@ -80,6 +80,30 @@ void downgradeOsuFile(std::filesystem::path filePath){
       
       
     while (std::getline(file, line)) {
+
+        switch(section){
+            // case 0: not implemented to skip content immediately
+            case 1:
+             // General
+            break;
+            case 2:
+             // Metadata
+             break;
+               case 3:
+               // Difficulty
+             break;
+               case 4:
+               // Events
+             break;
+               case 5:
+               // Timing Points
+             break;
+               case 6:
+               // HitObjects
+             break;
+        }
+
+
         if(lineStartsWith(line.c_str(),"osu file format v")){
         fileFormat = replaceString(line,"osu file format v","");
         std::cout << "Target file is version: " << fileFormat << "\n";
@@ -87,17 +111,14 @@ void downgradeOsuFile(std::filesystem::path filePath){
          if(lineStartsWith(line.c_str(),"[")){
          // this is fine as it only gets executed once on a new section, code looks shit but it works
        if(lineStartsWith(line.c_str(),"[General]")){section=1;}
-       if(lineStartsWith(line.c_str(),"[Editor]")){section=0;}
+       if(lineStartsWith(line.c_str(),"[Editor]")){section=0;} // skip -> not present in 2007 client
        if(lineStartsWith(line.c_str(),"[Metadata]")){section=2;}
        if(lineStartsWith(line.c_str(),"[Difficulty]")){section=3;}
        if(lineStartsWith(line.c_str(),"[Events]")){section=4;}
        if(lineStartsWith(line.c_str(),"[TimingPoints]")){section=5;}
-       if(lineStartsWith(line.c_str(),"[Colours]")){section=0;}
-       if(lineStartsWith(line.c_str(),"[HitObjects]")){section=6;}
-
-        }
+       if(lineStartsWith(line.c_str(),"[Colours]")){section=0;} // skip -> not present in 2007 client
+       if(lineStartsWith(line.c_str(),"[HitObjects]")){section=6;}}
     }
     file.close();
     }
-   
 }
