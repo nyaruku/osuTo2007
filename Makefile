@@ -3,7 +3,7 @@
 # Compiler
 CXX = g++
 
-CXXFLAGS = -m32 -Wall -std=c++20 -O3
+CXXFLAGS = -Wall -std=c++20 -O3
 
 SOURCES = $(wildcard *.cpp)
 OBJS = $(SOURCES:.cpp=.o)
@@ -15,6 +15,7 @@ all: $(EXEC)
 
 $(EXEC): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
+	
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
