@@ -5,6 +5,7 @@ Convert any osu beatmap to v3 (playable in the 2007 client)
 - Restore v3 beatmap structure
 - Handling SV points by multiplying with BPM (bc 2007 doesnt support SV) -> SV Point to Timing Point
 - Fix Slider Start Position
+- TODO: represent modern slider shapes in v3
 
 Download from release, or compile:
 
