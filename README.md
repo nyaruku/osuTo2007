@@ -1,6 +1,11 @@
 # osuTo2007
 Convert any osu beatmap to v3 (playable in the 2007 client)
 
+# What does it do?
+- Restore v3 beatmap structure
+- Handling SV points by multiplying with BPM (bc 2007 doesnt support SV) -> SV Point to Timing Point
+- Fix Slider Start Position
+
 Download from release, or compile:
 
 Compiling: Makefile
