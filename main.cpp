@@ -72,7 +72,7 @@ std::vector<std::string> split_first(std::string s, std::string delimiter)
 int main()
 {
   int option_range = 0;
-  std::cout << "##################\nosuTo2007\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
+  std::cout << "##################\nosuTo2007 v1.0\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
   std::vector<std::filesystem::path> map_list;
   for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
   {
@@ -115,7 +115,9 @@ opt:
   }
   if (std::stoi(input) == 0)
   {
-    // TODO
+    for (int i = 0; i < map_list.size(); i++){
+      downgradeOsuFile(map_list[i]);
+    }
   }
   else
   {
@@ -388,6 +390,5 @@ void downgradeOsuFile(std::filesystem::path filePath)
   std::ofstream out(fileName);
   out << output;
   out.close();
-
   std::cout << "----------------\nDONE\n----------------\n";
 }
