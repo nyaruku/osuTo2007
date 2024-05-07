@@ -7,11 +7,12 @@
 #include <string_view>
 #include <algorithm>
 
-void downgradeOsuFile(std::filesystem::path filePath);
+void downgradeOsuFile(std::filesystem::path filePath, bool keepOD);
 
-std::string removeCarriageReturn(std::string str) {
-    str.erase(std::remove(str.begin(), str.end(), '\r'), str.end());
-    return str;
+std::string removeCarriageReturn(std::string str)
+{
+  str.erase(std::remove(str.begin(), str.end(), '\r'), str.end());
+  return str;
 }
 bool is_number(const std::string &s)
 {
@@ -19,10 +20,6 @@ bool is_number(const std::string &s)
   while (it != s.end() && std::isdigit(*it))
     ++it;
   return !s.empty() && it == s.end();
-}
-bool lineStartsWith(const char *line, const char *prefix)
-{
-  return strncmp(line, prefix, strlen(prefix)) == 0;
 }
 std::string replaceString(std::string subject, const std::string &search, const std::string &replace)
 {
@@ -78,7 +75,7 @@ std::vector<std::string> split_first(std::string s, std::string delimiter)
 int main()
 {
   int option_range = 0;
-  std::cout << "##################\nosuTo2007 v1.2\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
+  std::cout << "##################\nosuTo2007 v1.3\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
   std::vector<std::filesystem::path> map_list;
   for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
   {
@@ -119,33 +116,60 @@ opt:
     std::cout << "Invalid Option\n";
     goto opt;
   }
+  bool keep_OD;
+opt2:
+  std::cout << "Because in v3 AR(ApproachRate) is tied to OD(OverallDifficulty):\nOD = AR\nDo you prefer to have:\n1 = same OverallDifficulty (map might be hard to read)\n2 = same ApproachRate (map might be hard to acc)\n";
+  std::string input2;
+  std::cin >> input2;
+  if (!is_number(input2))
+  {
+    std::cout << "Not a number\n";
+    goto opt2;
+  }
+  if ((std::stoi(input2) < 1) || (std::stoi(input2) > 2))
+  {
+    std::cout << "Invalid Option\n";
+    goto opt2;
+  }
+  if (input2 == "1")
+  {
+    keep_OD = true;
+  }
+  else
+  {
+    keep_OD = false;
+  }
   if (std::stoi(input) == 0)
   {
-    for (int i = 0; i < map_list.size(); i++){
-      downgradeOsuFile(map_list[i]);
+    for (int i = 0; i < map_list.size(); i++)
+    {
+      downgradeOsuFile(map_list[i], keep_OD);
     }
   }
   else
   {
-    downgradeOsuFile(map_list[std::stoi(input) - 1]);
+    downgradeOsuFile(map_list[std::stoi(input) - 1], keep_OD);
   }
   return 0;
 }
 
-void downgradeOsuFile(std::filesystem::path filePath)
+void downgradeOsuFile(std::filesystem::path filePath, bool keepOD)
 {
   // predefined keys to search for
   static std::vector<std::string> general_Var = {"AudioFilename", "PreviewTime", "SampleSet"};
   static std::vector<std::string> metaData_Var = {"Title", "Artis", "Creator", "Version"};
-  static std::vector<std::string> difficulty_Var = {"HPDrainRate", "CircleSize", "OverallDifficulty", "SliderMultiplier", "SliderTickRate"};
+  static std::vector<std::string> difficulty_Var = {"HPDrainRate", "CircleSize", "OverallDifficulty", "ApproachRate", "SliderMultiplier", "SliderTickRate"};
 
   // current filename
   std::string fileName = "(converted) " + filePath.filename().string();
 
-  // osu file format version, TODO: prevent conversion if version is 3
+  // osu file format version
   std::string fileFormat = "";
-  std::vector<std::pair<std::string,std::string>> general, metadata, difficulty;
+  std::string OD_line = "";
+  std::string AR_line = "";
+  std::vector<std::pair<std::string, std::string>> general, metadata, difficulty;
   std::vector<std::string> events, timingPoints, hitObjects;
+  bool skip = false;
   int section = 0;
   std::cout << "Downgrading " << filePath.filename() << " to v3 file format...\n";
   std::ifstream file(filePath);
@@ -155,11 +179,19 @@ void downgradeOsuFile(std::filesystem::path filePath)
 
     while (std::getline(file, line))
     {
-      
+
       if (line.starts_with("osu file format v"))
       {
         fileFormat = replaceString(line, "osu file format v", "");
         std::cout << "Target file is version: " << fileFormat << "\n";
+        if (fileFormat == "3")
+        {
+          std::cout << "Skipping conversion..."
+                    << "\n";
+          skip = true;
+          file.close();
+          goto abort;
+        }
       }
       if (line.starts_with("["))
       {
@@ -199,7 +231,7 @@ void downgradeOsuFile(std::filesystem::path filePath)
           section = 6;
         }
       }
-    
+
       switch (section)
       {
       case 0:
@@ -240,7 +272,27 @@ void downgradeOsuFile(std::filesystem::path filePath)
             if (line.starts_with(difficulty_Var[i]))
             {
               std::cout << line << "\n";
-              difficulty.push_back(std::make_pair(std::string(difficulty_Var[i]), std::string((replaceString(line, difficulty_Var[i] + ":", "")))));
+              switch (i)
+              {
+              case 2:
+                // skip
+                OD_line = line;
+                break;
+              case 3:
+                if (keepOD)
+                {
+                  // keep OD
+                  difficulty.push_back(std::make_pair(std::string(difficulty_Var[2]), std::string((replaceString(OD_line, difficulty_Var[2] + ":", "")))));
+                }
+                else
+                {
+                  // overwrite OD with AR
+                  difficulty.push_back(std::make_pair(std::string(difficulty_Var[2]), std::string((replaceString(line, difficulty_Var[3] + ":", "")))));
+                }
+                break;
+              default:
+                difficulty.push_back(std::make_pair(std::string(difficulty_Var[i]), std::string((replaceString(line, difficulty_Var[i] + ":", "")))));
+              }
             }
           }
         }
@@ -253,16 +305,18 @@ void downgradeOsuFile(std::filesystem::path filePath)
         // Timing Points
         if (line != "" && !(line.starts_with("[")))
         {
-          if(line.starts_with("[HitObjects]")){
-          section = 6;
-          break;
-          }else{
-            if(!line.empty()){
-           timingPoints.push_back(line);
-            }
-            
+          if (line.starts_with("[HitObjects]"))
+          {
+            section = 6;
+            break;
           }
-         
+          else
+          {
+            if (!line.empty())
+            {
+              timingPoints.push_back(line);
+            }
+          }
         }
         break;
       case 6:
@@ -277,135 +331,140 @@ void downgradeOsuFile(std::filesystem::path filePath)
     }
     file.close();
   }
+abort:
 
-  // process file
-  std::string output = "osu file format v3\n\n[General]\n";
-
-  for (int i = 0; i < general.size(); i++)
+  if (!skip)
   {
-    output += general[i].first + ": " + general[i].second + "\n";
-  }
+    // process file
+    std::string output = "osu file format v3\n\n[General]\n";
 
-  output += "\n[Metadata]\n";
-
-  for (int i = 0; i < metadata.size(); i++)
-  {
-    if (metadata[i].first == "Version")
+    for (int i = 0; i < general.size(); i++)
     {
-      metadata[i].second = "(Converted) " + metadata[i].second;
+      output += general[i].first + ": " + general[i].second + "\n";
     }
-    output += metadata[i].first + ":" + metadata[i].second + "\n";
-  }
 
-  output += "\n[Difficulty]\n";
+    output += "\n[Metadata]\n";
 
-  for (int i = 0; i < difficulty.size(); i++)
-  {
-    if(string_contains(difficulty[i].second,".") && i < 3){
-      // 2007 client doesnt support decimal input on HP/CS/OD -> resulting in crash
-      difficulty[i].second = difficulty[i].second[0];
-    }
-   
-    output += difficulty[i].first + ":" + difficulty[i].second + "\n";
-  }
-
-  // TODO
-  output += "\n[Events]\n\n[TimingPoints]\n";
-  float currentBPM = 120.0f; // temp storing bpm for sv conversion
-  float currentSV = 1.0f;    // temp storing sv
-  float multiplier = 1.0f;
-  for (int i = 0; i < timingPoints.size(); i++)
-  {
-    // std::cout << "Current TimingPoint Line: " << timingPoints[i] << "\n";
-    if(split(timingPoints[i], ",").size() < 2){
-      std::cout << "This would lead to a Segmentation Fault\n"; 
-    }
-    else
+    for (int i = 0; i < metadata.size(); i++)
     {
-    std::vector<std::string> v = split(removeCarriageReturn(timingPoints[i]), ",");
-    output += v[0] + ","; // ms
-    if (lineStartsWith(v[1].c_str(),"-"))
+      if (metadata[i].first == "Version")
+      {
+        metadata[i].second = "(Converted) " + metadata[i].second;
+      }
+      output += metadata[i].first + ":" + metadata[i].second + "\n";
+    }
+
+    output += "\n[Difficulty]\n";
+
+    for (int i = 0; i < difficulty.size(); i++)
     {
-      // slider velocity point
-      currentSV = std::stof(replaceString(v[1], "-", ""));
-      multiplier = 100 / currentSV;
-      std::cout << "New SV Point: " << multiplier << "x | Converted BPM: ";
-      if (i == 0)
-      {  
-      //  **I assume there is no SV Point before a timing point, proof me wrong**
-      //  
-      //  if slider velocity before timing point
-      //  get the first timing point present
-      //  std::string indexT = 0;
-      //  for (int iii = 0; iii < timingPoints.size(); iii++)
-      //  {
-      //    std::vector<std::string> vT = split(timingPoints[iii], ",");
-      //   if (!vT[1].starts_with("-"))
-      //   {
-      //      indexT = vT[1];
-      //      break; // found timing point
-      //    }
-      //  }
-      //  1/beatLength*1000*60
-      //  currentBPM = (((1 / std::stof(indexT)) * 1000) * 60);
-      //  output += std::to_string((currentBPM * multiplier)*1/1000/60) + "\n";
+      if (string_contains(difficulty[i].second, ".") && i < 3)
+      {
+        // 2007 client doesnt support decimal input on HP/CS/OD -> resulting in crash
+        difficulty[i].second = difficulty[i].second[0];
+      }
+
+      output += difficulty[i].first + ":" + difficulty[i].second + "\n";
+    }
+
+    // TODO
+    output += "\n[Events]\n\n[TimingPoints]\n";
+    float currentBPM = 120.0f; // temp storing bpm for sv conversion
+    float currentSV = 1.0f;    // temp storing sv
+    float multiplier = 1.0f;
+    for (int i = 0; i < timingPoints.size(); i++)
+    {
+      // std::cout << "Current TimingPoint Line: " << timingPoints[i] << "\n";
+      if (split(timingPoints[i], ",").size() < 2)
+      {
+        std::cout << "This would lead to a Segmentation Fault\n";
       }
       else
       {
-        std::cout << currentBPM << "BPM -> " << (currentBPM * multiplier) << "BPM\n"; 
-        output += std::to_string(60000/(currentBPM * multiplier)) + "\n";
-      }
-     
-    }
-    else
-    {
-      // timing point
-      output += v[1] + "\n";
-      currentBPM = (((1 / std::stof(v[1])) * 1000) * 60);
-      std::cout << "New Timing Point: " << currentBPM << "BPM\n";
-    }
-   }
-  }
-
-  output += "\n[HitObjects]\n";
-
-  for (int i = 0; i < hitObjects.size(); i++)
-  {
-    if (string_contains(hitObjects[i], "|"))
-    {
-      // Slider
-      std::vector<std::string> v = split(hitObjects[i], ",");  
-      std::string Sx = v[0];
-      std::string Sy = v[1];
-      std::string slider = "";
-      v[5] = v[5].insert(1, "|" + Sx + ":" + Sy);
-      std::cout << "Slider: ";
-      for (int b = 0; b < v.size(); b++)
-      {
-
-        if (b == v.size() - 1)
+        std::vector<std::string> v = split(removeCarriageReturn(timingPoints[i]), ",");
+        output += v[0] + ","; // ms
+        if (v[1].starts_with("-"))
         {
-          std::cout << v[b];
-          slider += v[b];
+          // slider velocity point
+          currentSV = std::stof(replaceString(v[1], "-", ""));
+          multiplier = 100 / currentSV;
+          std::cout << "New SV Point: " << multiplier << "x | Converted BPM: ";
+          if (i == 0)
+          {
+            //  **I assume there is no SV Point before a timing point, proof me wrong**
+            //
+            //  if slider velocity before timing point
+            //  get the first timing point present
+            //  std::string indexT = 0;
+            //  for (int iii = 0; iii < timingPoints.size(); iii++)
+            //  {
+            //    std::vector<std::string> vT = split(timingPoints[iii], ",");
+            //   if (!vT[1].starts_with("-"))
+            //   {
+            //      indexT = vT[1];
+            //      break; // found timing point
+            //    }
+            //  }
+            //  1/beatLength*1000*60
+            //  currentBPM = (((1 / std::stof(indexT)) * 1000) * 60);
+            //  output += std::to_string((currentBPM * multiplier)*1/1000/60) + "\n";
+          }
+          else
+          {
+            std::cout << currentBPM << "BPM -> " << (currentBPM * multiplier) << "BPM\n";
+            output += std::to_string(60000 / (currentBPM * multiplier)) + "\n";
+          }
         }
         else
         {
-          std::cout << v[b] << ",";
-          slider += v[b] + ",";
+          // timing point
+          output += v[1] + "\n";
+          currentBPM = (((1 / std::stof(v[1])) * 1000) * 60);
+          std::cout << "New Timing Point: " << currentBPM << "BPM\n";
         }
       }
-      std::cout << "\n";
-      output += slider + "\n";
     }
-    else
+
+    output += "\n[HitObjects]\n";
+
+    for (int i = 0; i < hitObjects.size(); i++)
     {
-      // Circle, write to output as it is, as no issues with modern circle lines are found YET
-      output += hitObjects[i] + "\n";
+      if (string_contains(hitObjects[i], "|"))
+      {
+        // Slider
+        std::vector<std::string> v = split(hitObjects[i], ",");
+        std::string Sx = v[0];
+        std::string Sy = v[1];
+        std::string slider = "";
+        v[5] = v[5].insert(1, "|" + Sx + ":" + Sy);
+        std::cout << "Slider: ";
+        for (int b = 0; b < v.size(); b++)
+        {
+
+          if (b == v.size() - 1)
+          {
+            std::cout << v[b];
+            slider += v[b];
+          }
+          else
+          {
+            std::cout << v[b] << ",";
+            slider += v[b] + ",";
+          }
+        }
+        std::cout << "\n";
+        output += slider + "\n";
+      }
+      else
+      {
+        // Circle, write to output as it is, as no issues with modern circle lines are found YET
+        output += hitObjects[i] + "\n";
+      }
     }
+    std::cout << fileName << "\n";
+    std::ofstream out(fileName);
+    out << output;
+    out.close();
+    std::cout << "----------------\nDONE\n----------------\n";
   }
-  std::cout << fileName << "\n";
-  std::ofstream out(fileName);
-  out << output;
-  out.close();
-  std::cout << "----------------\nDONE\n----------------\n";
 }
