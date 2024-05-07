@@ -5,8 +5,14 @@
 #include <sstream>
 #include <string.h>
 #include <string_view>
+#include <algorithm>
 
 void downgradeOsuFile(std::filesystem::path filePath);
+
+std::string removeCarriageReturn(std::string str) {
+    str.erase(std::remove(str.begin(), str.end(), '\r'), str.end());
+    return str;
+}
 bool is_number(const std::string &s)
 {
   std::string::const_iterator it = s.begin();
@@ -72,7 +78,7 @@ std::vector<std::string> split_first(std::string s, std::string delimiter)
 int main()
 {
   int option_range = 0;
-  std::cout << "##################\nosuTo2007 v1.1\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
+  std::cout << "##################\nosuTo2007 v1.2\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
   std::vector<std::filesystem::path> map_list;
   for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
   {
@@ -149,6 +155,7 @@ void downgradeOsuFile(std::filesystem::path filePath)
 
     while (std::getline(file, line))
     {
+      
       if (line.starts_with("osu file format v"))
       {
         fileFormat = replaceString(line, "osu file format v", "");
@@ -246,11 +253,14 @@ void downgradeOsuFile(std::filesystem::path filePath)
         // Timing Points
         if (line != "" && !(line.starts_with("[")))
         {
-          if(line.starts_with("[HitObjects]") || line == ""){
+          if(line.starts_with("[HitObjects]")){
           section = 6;
           break;
           }else{
-          timingPoints.push_back(line);
+            if(!line.empty()){
+           timingPoints.push_back(line);
+            }
+            
           }
          
         }
@@ -307,9 +317,14 @@ void downgradeOsuFile(std::filesystem::path filePath)
   for (int i = 0; i < timingPoints.size(); i++)
   {
     // std::cout << "Current TimingPoint Line: " << timingPoints[i] << "\n";
-    std::vector<std::string> v = split(timingPoints[i], ",");
+    if(split(timingPoints[i], ",").size() < 2){
+      std::cout << "This would lead to a Segmentation Fault\n"; 
+    }
+    else
+    {
+    std::vector<std::string> v = split(removeCarriageReturn(timingPoints[i]), ",");
     output += v[0] + ","; // ms
-    if (v[1].starts_with("-"))
+    if (lineStartsWith(v[1].c_str(),"-"))
     {
       // slider velocity point
       currentSV = std::stof(replaceString(v[1], "-", ""));
@@ -340,6 +355,7 @@ void downgradeOsuFile(std::filesystem::path filePath)
         std::cout << currentBPM << "BPM -> " << (currentBPM * multiplier) << "BPM\n"; 
         output += std::to_string(60000/(currentBPM * multiplier)) + "\n";
       }
+     
     }
     else
     {
@@ -348,6 +364,7 @@ void downgradeOsuFile(std::filesystem::path filePath)
       currentBPM = (((1 / std::stof(v[1])) * 1000) * 60);
       std::cout << "New Timing Point: " << currentBPM << "BPM\n";
     }
+   }
   }
 
   output += "\n[HitObjects]\n";
@@ -357,7 +374,7 @@ void downgradeOsuFile(std::filesystem::path filePath)
     if (string_contains(hitObjects[i], "|"))
     {
       // Slider
-      std::vector<std::string> v = split(hitObjects[i], ",");
+      std::vector<std::string> v = split(hitObjects[i], ",");  
       std::string Sx = v[0];
       std::string Sy = v[1];
       std::string slider = "";
