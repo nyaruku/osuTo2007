@@ -8,9 +8,9 @@ Convert any osu beatmap to v3 (playable in the 2007 client)
 - TODO: represent modern slider shapes in v3
 
 # Performance Issues within 2007 client
-- Beatmaps with a lot of timing points/objects will take long time to load when u play__
-  -> each 100KB ~ 5-6minute load time__
-  -> lag spikes/unstable frame rate__
+- Beatmaps with a lot of timing points/objects will take long time to load when u play<br/>
+  -> each 100KB ~ 5-6minute load time<br/>
+  -> lag spikes/unstable frame rate<br/>
 
 Download from release, or compile:
 
