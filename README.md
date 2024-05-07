@@ -12,7 +12,9 @@ Convert any osu beatmap to v3 (playable in the 2007 client)
   -> each 100KB ~ 5-6minute load time<br/>
   -> lag spikes/unstable frame rate<br/>
 
-Download from release, or compile:
+# How to run
+Download from release, or compile<br/>
+-> place .osu files into the same directory where the executable(windows)/binary(linux) is<br/>
 
 Compiling: Makefile
 ```make
