@@ -271,7 +271,7 @@ void downgradeOsuFile(std::filesystem::path filePath, bool keepOD)
           {
             if (line.starts_with(difficulty_Var[i]))
             {
-              std::cout << line << "\n";
+           //   std::cout << line << "\n";
               switch (i)
               {
               case 2:
@@ -299,7 +299,42 @@ void downgradeOsuFile(std::filesystem::path filePath, bool keepOD)
         break;
       case 4:
         // Events
-        // I'm lazy so not yet doing this
+        if (line != "" && !(line.starts_with("[")) && !(line.starts_with("//")) && !line.empty())
+        {
+
+          // handle spaces from the beginning
+          if (line[0] == ' ')
+          {
+
+            for (int sp = 0; sp < line.length(); sp++)
+            {
+              if (line[sp] == ' ')
+              {
+              }
+              else
+              {
+                // first non space char found
+                // number check bc b99 doesnt support storyboard fully
+                std::string eChar = {line[sp]};
+                if (is_number(eChar))
+                {
+                  // all good
+                  events.push_back(line);
+                }
+                break;
+              }
+            }
+          }
+          else
+          {
+            // number check bc b99 doesnt support storyboard fully
+            std::string eChar = {line[0]};
+            if (!line.starts_with("//") && is_number(eChar))
+            {
+              events.push_back(line);
+            }
+          }
+        }
         break;
       case 5:
         // Timing Points
@@ -367,17 +402,24 @@ abort:
       output += difficulty[i].first + ":" + difficulty[i].second + "\n";
     }
 
-    // TODO
-    output += "\n[Events]\n\n[TimingPoints]\n";
-    float currentBPM = 120.0f; // temp storing bpm for sv conversion
-    float currentSV = 1.0f;    // temp storing sv
-    float multiplier = 1.0f;
+    // Events
+    output += "\n[Events]\n";
+    for (int i = 0; i < events.size(); i++)
+    {
+      output += events[i] + "\n";
+    }
+
+    // Timing Points
+    output += "\n[TimingPoints]\n";
+    double currentBPM = 120.0f; // temp storing bpm for sv conversion
+    double currentSV = 1.0f;    // temp storing sv
+    double multiplier = 1.0f;
     for (int i = 0; i < timingPoints.size(); i++)
     {
       // std::cout << "Current TimingPoint Line: " << timingPoints[i] << "\n";
       if (split(timingPoints[i], ",").size() < 2)
       {
-        std::cout << "This would lead to a Segmentation Fault\n";
+      //  std::cout << "This would lead to a Segmentation Fault\n";
       }
       else
       {
@@ -386,9 +428,9 @@ abort:
         if (v[1].starts_with("-"))
         {
           // slider velocity point
-          currentSV = std::stof(replaceString(v[1], "-", ""));
+          currentSV = std::stod(replaceString(v[1], "-", ""));
           multiplier = 100 / currentSV;
-          std::cout << "New SV Point: " << multiplier << "x | Converted BPM: ";
+       //   std::cout << "New SV Point: " << multiplier << "x | Converted BPM: ";
           if (i == 0)
           {
             //  **I assume there is no SV Point before a timing point, proof me wrong**
@@ -411,7 +453,7 @@ abort:
           }
           else
           {
-            std::cout << currentBPM << "BPM -> " << (currentBPM * multiplier) << "BPM\n";
+          //  std::cout << currentBPM << "BPM -> " << (currentBPM * multiplier) << "BPM\n";
             output += std::to_string(60000 / (currentBPM * multiplier)) + "\n";
           }
         }
@@ -419,14 +461,14 @@ abort:
         {
           // timing point
           output += v[1] + "\n";
-          currentBPM = (((1 / std::stof(v[1])) * 1000) * 60);
-          std::cout << "New Timing Point: " << currentBPM << "BPM\n";
+          currentBPM = (((1 / std::stod(v[1])) * 1000) * 60);
+        //  std::cout << "New Timing Point: " << currentBPM << "BPM\n";
         }
       }
     }
 
+    // HitObjects
     output += "\n[HitObjects]\n";
-
     for (int i = 0; i < hitObjects.size(); i++)
     {
       if (string_contains(hitObjects[i], "|"))
@@ -437,22 +479,22 @@ abort:
         std::string Sy = v[1];
         std::string slider = "";
         v[5] = v[5].insert(1, "|" + Sx + ":" + Sy);
-        std::cout << "Slider: ";
+      //  std::cout << "Slider: ";
         for (int b = 0; b < v.size(); b++)
         {
 
           if (b == v.size() - 1)
           {
-            std::cout << v[b];
+          //  std::cout << v[b];
             slider += v[b];
           }
           else
           {
-            std::cout << v[b] << ",";
+       //     std::cout << v[b] << ",";
             slider += v[b] + ",";
           }
         }
-        std::cout << "\n";
+       // std::cout << "\n";
         output += slider + "\n";
       }
       else
