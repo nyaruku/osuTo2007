@@ -11,6 +11,7 @@ Convert any osu beatmap to v3 (playable in the 2007 client)
 - Beatmaps with a lot of timing points/objects will take long time to load when u play<br/>
   -> each 100KB ~ 5-6minute load time<br/>
   -> lag spikes/unstable frame rate<br/>
+  -> b337 currently the earliest client that is optimized enough
 
 # How to run
 Download from release, or compile<br/>
