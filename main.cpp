@@ -75,7 +75,7 @@ std::vector<std::string> split_first(std::string s, std::string delimiter)
 int main()
 {
   int option_range = 0;
-  std::cout << "##################\nosuTo2007 v1.3\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
+  std::cout << "##################\nosuTo2007 v1.5\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
   std::vector<std::filesystem::path> map_list;
   for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
   {
@@ -186,8 +186,7 @@ void downgradeOsuFile(std::filesystem::path filePath, bool keepOD)
         std::cout << "Target file is version: " << fileFormat << "\n";
         if (fileFormat == "3")
         {
-          std::cout << "Skipping conversion..."
-                    << "\n";
+          std::cout << "Skipping conversion..." << "\n";
           skip = true;
           file.close();
           goto abort;
@@ -271,7 +270,7 @@ void downgradeOsuFile(std::filesystem::path filePath, bool keepOD)
           {
             if (line.starts_with(difficulty_Var[i]))
             {
-           //   std::cout << line << "\n";
+              //   std::cout << line << "\n";
               switch (i)
               {
               case 2:
@@ -410,6 +409,8 @@ abort:
     }
 
     // Timing Points
+    // Because v3 doesn't support sv points,
+    // we need to convert those to bpm points.
     output += "\n[TimingPoints]\n";
     double currentBPM = 120.0f; // temp storing bpm for sv conversion
     double currentSV = 1.0f;    // temp storing sv
@@ -419,7 +420,7 @@ abort:
       // std::cout << "Current TimingPoint Line: " << timingPoints[i] << "\n";
       if (split(timingPoints[i], ",").size() < 2)
       {
-      //  std::cout << "This would lead to a Segmentation Fault\n";
+        //  std::cout << "This would lead to a Segmentation Fault\n";
       }
       else
       {
@@ -430,7 +431,7 @@ abort:
           // slider velocity point
           currentSV = std::stod(replaceString(v[1], "-", ""));
           multiplier = 100 / currentSV;
-       //   std::cout << "New SV Point: " << multiplier << "x | Converted BPM: ";
+          //   std::cout << "New SV Point: " << multiplier << "x | Converted BPM: ";
           if (i == 0)
           {
             //  **I assume there is no SV Point before a timing point, proof me wrong**
@@ -453,7 +454,7 @@ abort:
           }
           else
           {
-          //  std::cout << currentBPM << "BPM -> " << (currentBPM * multiplier) << "BPM\n";
+            //  std::cout << currentBPM << "BPM -> " << (currentBPM * multiplier) << "BPM\n";
             output += std::to_string(60000 / (currentBPM * multiplier)) + "\n";
           }
         }
@@ -462,7 +463,7 @@ abort:
           // timing point
           output += v[1] + "\n";
           currentBPM = (((1 / std::stod(v[1])) * 1000) * 60);
-        //  std::cout << "New Timing Point: " << currentBPM << "BPM\n";
+          //  std::cout << "New Timing Point: " << currentBPM << "BPM\n";
         }
       }
     }
@@ -473,29 +474,77 @@ abort:
     {
       if (string_contains(hitObjects[i], "|"))
       {
+        // -------------------------------------------
+        // Experimental: Pre Patch: Convert "P" - Perfect Circle Slider Types to Catmull
+        // -------------------------------------------
+
+        if (string_contains(hitObjects[i], ",P|"))
+        {
+          hitObjects[i] = replaceString(hitObjects[i], ",P|", ",C|");
+        }
+
         // Slider
         std::vector<std::string> v = split(hitObjects[i], ",");
         std::string Sx = v[0];
         std::string Sy = v[1];
         std::string slider = "";
+
+        // -------------------------------------------
+        // Fist Slider Patch: anchor fix
+        // -------------------------------------------
+        // In v3 the first anchor point must represent the starting circle of the slider.
+
         v[5] = v[5].insert(1, "|" + Sx + ":" + Sy);
-      //  std::cout << "Slider: ";
         for (int b = 0; b < v.size(); b++)
         {
-
           if (b == v.size() - 1)
           {
-          //  std::cout << v[b];
             slider += v[b];
           }
           else
           {
-       //     std::cout << v[b] << ",";
             slider += v[b] + ",";
           }
         }
-       // std::cout << "\n";
-        output += slider + "\n";
+
+        // -------------------------------------------
+        // Second Slider Patch: multi-type slider fix
+        // -------------------------------------------
+        // Because v3 doesn't support multiplie slider types in one slider...
+        // Example: Bezir -> Linear -> Bezir
+        // We need to duplicate the anchor point a few times at the same spot & time,
+        // to "create" a linear slider inside of a bezir slider.
+
+        std::string slider2 = "";
+        std::vector<std::string> v1 = split(slider, "|");
+        for (int c = 0; c < v1.size(); c++)
+        {
+          if (c != v1.size() - 1)
+          {
+            if (v1[c] == v1[c + 1])
+            {
+              // Red anchor points are detected by a pair of the same anchor point
+              // Example ...B|142:107|208:64|208:64|186:140|...
+              //                      ^^^^^^ ^^^^^^
+              std::string red_anchor = "";
+              for (int anc = 0; anc < 10; anc++) // should be enough?
+              {
+                red_anchor += v1[c] + "|";
+              }
+              slider2 += red_anchor;
+            }
+            else
+            {
+              slider2 += v1[c] + "|";
+            }
+          }
+          else
+          {
+            slider2 += v1[c];
+          }
+        }
+
+        output += slider2 + "\n";
       }
       else
       {
