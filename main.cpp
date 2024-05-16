@@ -75,7 +75,7 @@ std::vector<std::string> split_first(std::string s, std::string delimiter)
 int main()
 {
   int option_range = 0;
-  std::cout << "##################\nosuTo2007 v1.5\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
+  std::cout << "##################\nosuTo2007 v1.6\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
   std::vector<std::filesystem::path> map_list;
   for (const auto &entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
   {
@@ -424,7 +424,29 @@ abort:
       }
       else
       {
+        bool duplicate = false;
         std::vector<std::string> v = split(removeCarriageReturn(timingPoints[i]), ",");
+
+        if (i + 1 < timingPoints.size())
+        {
+          // next timing point exists.
+          std::vector<std::string> v1 = split(removeCarriageReturn(timingPoints[i + 1]), ",");
+          if (v[0] == v1[0])
+          {
+            // check if next timing point is the same time, if so, skip
+            if (v1[1].starts_with("-"))
+            {
+              currentBPM = (((1 / std::stod(v[1])) * 1000) * 60);
+              goto skipTimingPoint;    
+            }
+            else
+            {
+              // 2x timing points at same ms wtf????
+              goto skipTimingPoint;
+            }
+          }
+        }
+
         output += v[0] + ","; // ms
         if (v[1].starts_with("-"))
         {
@@ -465,6 +487,7 @@ abort:
           currentBPM = (((1 / std::stod(v[1])) * 1000) * 60);
           //  std::cout << "New Timing Point: " << currentBPM << "BPM\n";
         }
+      skipTimingPoint:
       }
     }
 
