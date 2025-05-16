@@ -6,6 +6,12 @@
 #include <string.h>
 #include <string_view>
 #include <algorithm>
+#include <cmath>
+
+// WINDOWS
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 void downgradeOsuFile(std::filesystem::path filePath, bool keepOD);
 
@@ -71,11 +77,103 @@ std::vector<std::string> split_first(std::string s, std::string delimiter)
     res.push_back(s.substr(pos_start));
     return res;
 }
+struct Vector2 {
+    float x, y;
+
+    Vector2() : x(0), y(0) {}
+    Vector2(float x_, float y_) : x(x_), y(y_) {}
+
+    float LengthSquared() const {
+        return x * x + y * y;
+    }
+
+    float Length() const {
+        return std::sqrt(LengthSquared());
+    }
+
+    Vector2 operator-(const Vector2& other) const {
+        return Vector2(x - other.x, y - other.y);
+    }
+
+    Vector2 operator+(const Vector2& other) const {
+        return Vector2(x + other.x, y + other.y);
+    }
+
+    Vector2 operator*(float scalar) const {
+        return Vector2(x * scalar, y * scalar);
+    }
+
+    Vector2 operator/(float scalar) const {
+        return Vector2(x / scalar, y / scalar);
+    }
+
+    static float Dot(const Vector2& a, const Vector2& b) {
+        return a.x * b.x + a.y * b.y;
+    }
+};
+std::vector<Vector2> CircularArcAutoPointCount(const Vector2& A, const Vector2& B, const Vector2& C) {
+    float d = 2 * (A.x * (B - C).y + B.x * (C - A).y + C.x * (A - B).y);
+    float aSq = A.LengthSquared();
+    float bSq = B.LengthSquared();
+    float cSq = C.LengthSquared();
+
+    Vector2 centre = Vector2(
+        aSq * (B - C).y + bSq * (C - A).y + cSq * (A - B).y,
+        aSq * (C - B).x + bSq * (A - C).x + cSq * (B - A).x
+    ) / d;
+
+    Vector2 dA = A - centre;
+    Vector2 dC = C - centre;
+    float radius = dA.Length();
+
+    double thetaStart = std::atan2(dA.y, dA.x);
+    double thetaEnd = std::atan2(dC.y, dC.x);
+
+    while (thetaEnd < thetaStart)
+        thetaEnd += 2 * M_PI;
+
+    int direction = 1;
+    double thetaRange = thetaEnd - thetaStart;
+
+    // Side check
+    Vector2 orthoAtoC = Vector2((C - A).y, -(C - A).x);
+    if (Vector2::Dot(orthoAtoC, B - A) < 0) {
+        direction = -direction;
+        thetaRange = 2 * M_PI - thetaRange;
+    }
+
+    // Determine number of points
+    int numPoints;
+    if (2 * radius <= 0.1f) {
+        numPoints = 2;
+    }
+    else {
+        double denom = 2 * std::acos(1 - 0.1f / radius);
+        double raw = thetaRange / denom;
+        int autoPts = static_cast<int>(std::ceil(raw));
+        numPoints = std::max(2, autoPts);
+    }
+
+    std::vector<Vector2> output;
+    output.reserve(numPoints);
+
+    for (int i = 0; i < numPoints; ++i) {
+        double fract = static_cast<double>(i) / (numPoints - 1);
+        double theta = thetaStart + direction * fract * thetaRange;
+        float cosT = static_cast<float>(std::cos(theta));
+        float sinT = static_cast<float>(std::sin(theta));
+
+        Vector2 offset = Vector2(cosT, sinT) * radius;
+        output.push_back(centre + offset);
+    }
+
+    return output;
+}
 
 int main()
 {
     int option_range = 0;
-    std::cout << "##################\nosuTo2007 v1.6\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
+    std::cout << "##################\nosuTo2007 v1.7\nosu! : _Railgun_\nDiscord : @railgun_osu\n##################\n\n";
     std::vector<std::filesystem::path> map_list;
     for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::current_path()))
     {
@@ -497,12 +595,39 @@ abort:
             if (string_contains(hitObjects[i], "|"))
             {
                 // -------------------------------------------
-                // Experimental: Pre Patch: Convert "P" - Perfect Circle Slider Types to Catmull
+                // Experimental: Pre Patch: Convert "P" - Perfect Circle Slider Types to Bezier
                 // -------------------------------------------
-
+                // Thanks Digitalfear117 :3
+                // -------------------------------------------
                 if (string_contains(hitObjects[i], ",P|"))
                 {
-                    hitObjects[i] = replaceString(hitObjects[i], ",P|", ",C|");
+                    hitObjects[i] = replaceString(hitObjects[i], ",P|", ",B|");
+                    std::string new_slider_anchor="";
+                    std::vector<std::string> v3 = split(hitObjects[i], "|");
+                    std::vector<std::string> v4 = split(v3[0], ",");
+                    std::vector<std::string> v5 = split(v3[1], ":");
+                    std::vector<std::string> v6 = split(split(v3[2], ",")[0], ":");
+                    std::vector<Vector2> newAnchor = CircularArcAutoPointCount(Vector2(std::stoi(v4[0]), std::stoi(v4[1])), Vector2(std::stoi(v5[0]), std::stoi(v5[1])), Vector2(std::stoi(v6[0]), std::stoi(v6[1])));
+                    for (size_t vk = 0; vk < newAnchor.size() - 1; vk++) {
+                        new_slider_anchor += std::to_string(newAnchor[vk].x) + ":" + std::to_string(newAnchor[vk].y);
+                        if (vk < newAnchor.size() - 2)
+                            new_slider_anchor += "|";
+                        
+                    }
+                    // Patch
+                    v3[1] = new_slider_anchor;
+
+                    // Resonstruct Slider String
+                    std::string sliderString = "";
+                    for (size_t sT = 0; sT < v3.size(); sT++) {
+                        sliderString += v3[sT];
+                        if (sT < v3.size() - 1)
+                            sliderString += "|";
+                        
+                    }
+                    // Overwrite
+                    hitObjects[i] = sliderString;
+
                 }
 
                 // Slider
