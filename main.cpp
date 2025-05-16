@@ -255,7 +255,7 @@ void downgradeOsuFile(std::filesystem::path filePath, bool keepOD)
 {
     // predefined keys to search for
     static std::vector<std::string> general_Var = { "AudioFilename", "PreviewTime", "SampleSet" };
-    static std::vector<std::string> metaData_Var = { "Title", "Artis", "Creator", "Version" };
+    static std::vector<std::string> metaData_Var = { "Title", "Artist", "Creator", "Version" };
     static std::vector<std::string> difficulty_Var = { "HPDrainRate", "CircleSize", "OverallDifficulty", "ApproachRate", "SliderMultiplier", "SliderTickRate" };
 
     // current filename
